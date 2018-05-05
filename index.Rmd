@@ -1,0 +1,365 @@
+---
+title: "Fractals in R: drawing plants"
+author: "Arnau Muns Orenga"
+date: "`r Sys.Date()`"
+output: 
+   html_document:
+    theme: flatly
+    highlight: tango
+    code_folding: "show"
+    number_sections: TRUE
+    includes:
+        after_body: footer.html
+#params
+---
+
+
+```{r,echo=F,message=F,warning=F}
+library(gsubfn)
+library(stringr)
+library(dplyr)
+library(ggplot2)
+```
+
+#Explanation {.tabset .tabset-fade .tabset-pills}
+I'm trying to create some patterns of plants growing, based on [L-Systems](https://matap.dmae.upm.es/cursofractales/capitulo2/lparse/lparser.htm). L-System is a very efficient way to make drawings. It consists in two different actions: draw a straigh line and change the angle. 
+
+For example, if you want to draw a square you have to do: draw a straigh line of  any length, turn 90 degrees (without drawing), draw another straigh line of the same length, turn 90 degrees in the same direction, draw, turn and draw again. In terms of a L-System, denoting F as the action of drawing a line of length d and + as turning 90 degrees right, the whole process to draw a square can be represented as **F+F+F+F**.
+
+There are four important parameters in L-Systems:
+
+* The seed of the drawing, called **axiom**
+
+* The substitutions to be applied iteratively, called **rules**
+
+* How many times to apply substitutions, called **depth**
+
+* **Angle** of each turning
+
+In this document you will find the patterns I like the most. Feel free to try different combinations of the four rules to find your own patters.
+
+
+##Plant 1
+
+```{r}
+axiom="F"
+rules=list("F"="FF-[-F-F+F+F]+[+F+F-F-F]")
+angle=22.5
+depth=4
+```
+
+```{r,echo=FALSE}
+for (i in 1:depth) axiom=gsubfn(".", rules, axiom)
+ 
+actions=str_extract_all(axiom, "\\d*\\+|\\d*\\-|F|L|R|\\[|\\]|\\|") %>% unlist
+ 
+status=data.frame(x=numeric(0), y=numeric(0), alfa=numeric(0))
+points=data.frame(x1 = 0, y1 = 0, x2 = NA, y2 = NA, alfa=90, depth=1)
+ 
+ 
+for (action in actions) 
+{
+  if (action=="F")
+  {
+    x=points[1, "x1"]+cos(points[1, "alfa"]*(pi/180))
+    y=points[1, "y1"]+sin(points[1, "alfa"]*(pi/180))
+    points[1,"x2"]=x
+    points[1,"y2"]=y
+    data.frame(x1 = x, y1 = y, x2 = NA, y2 = NA, 
+               alfa=points[1, "alfa"],
+               depth=points[1,"depth"]) %>% rbind(points)->points
+  }
+  if (action %in% c("+", "-")){
+    alfa=points[1, "alfa"]
+    points[1, "alfa"]=eval(parse(text=paste0("alfa",action, angle)))
+  }
+  if(action=="["){ 
+    data.frame(x=points[1, "x1"], y=points[1, "y1"], alfa=points[1, "alfa"]) %>% 
+      rbind(status) -> status
+    points[1, "depth"]=points[1, "depth"]+1
+  }
+   
+  if(action=="]"){ 
+    depth=points[1, "depth"]
+    points[-1,]->points
+    data.frame(x1=status[1, "x"], y1=status[1, "y"], x2=NA, y2=NA, 
+               alfa=status[1, "alfa"],
+               depth=depth-1) %>% 
+      rbind(points) -> points
+    status[-1,]->status
+  }
+}
+ 
+ggplot() + 
+  geom_segment(aes(x = x1, y = y1, xend = x2, yend = y2), 
+               lineend = "round", 
+               colour="red",
+               data=na.omit(points)) + 
+  coord_fixed(ratio = 1) +
+  theme(legend.position="none",
+        panel.background = element_rect(fill="black"),
+        panel.grid=element_blank(),
+        axis.ticks=element_blank(),
+        axis.title=element_blank(),
+        axis.text=element_blank())
+```
+
+
+##Plant 2
+```{r}
+axiom="X"
+rules=list("X"="F[+X][-X]FX", "F"="FF")
+angle=26
+depth=7
+```
+```{r,echo=F}
+for (i in 1:depth) axiom=gsubfn(".", rules, axiom)
+ 
+actions=str_extract_all(axiom, "\\d*\\+|\\d*\\-|F|L|R|\\[|\\]|\\|") %>% unlist
+ 
+status=data.frame(x=numeric(0), y=numeric(0), alfa=numeric(0))
+points=data.frame(x1 = 0, y1 = 0, x2 = NA, y2 = NA, alfa=90, depth=1)
+ 
+ 
+for (action in actions) 
+{
+  if (action=="F")
+  {
+    x=points[1, "x1"]+cos(points[1, "alfa"]*(pi/180))
+    y=points[1, "y1"]+sin(points[1, "alfa"]*(pi/180))
+    points[1,"x2"]=x
+    points[1,"y2"]=y
+    data.frame(x1 = x, y1 = y, x2 = NA, y2 = NA, 
+               alfa=points[1, "alfa"],
+               depth=points[1,"depth"]) %>% rbind(points)->points
+  }
+  if (action %in% c("+", "-")){
+    alfa=points[1, "alfa"]
+    points[1, "alfa"]=eval(parse(text=paste0("alfa",action, angle)))
+  }
+  if(action=="["){ 
+    data.frame(x=points[1, "x1"], y=points[1, "y1"], alfa=points[1, "alfa"]) %>% 
+      rbind(status) -> status
+    points[1, "depth"]=points[1, "depth"]+1
+  }
+   
+  if(action=="]"){ 
+    depth=points[1, "depth"]
+    points[-1,]->points
+    data.frame(x1=status[1, "x"], y1=status[1, "y"], x2=NA, y2=NA, 
+               alfa=status[1, "alfa"],
+               depth=depth-1) %>% 
+      rbind(points) -> points
+    status[-1,]->status
+  }
+}
+ 
+ggplot() + 
+  geom_segment(aes(x = x1, y = y1, xend = x2, yend = y2), 
+               lineend = "round", 
+               colour="darkgreen",
+               data=na.omit(points)) + 
+  coord_fixed(ratio = 1) +
+  theme(legend.position="none",
+        panel.background = element_rect(fill="black"),
+        panel.grid=element_blank(),
+        axis.ticks=element_blank(),
+        axis.title=element_blank(),
+        axis.text=element_blank())
+```
+
+
+##Plant 3
+```{r}
+axiom="X"
+rules=list("X"="F[+X]F[-X]+F+X", "F"="FF")
+angle=25
+depth=7
+```
+
+```{r,echo=F}
+for (i in 1:depth) axiom=gsubfn(".", rules, axiom)
+ 
+actions=str_extract_all(axiom, "\\d*\\+|\\d*\\-|F|L|R|\\[|\\]|\\|") %>% unlist
+ 
+status=data.frame(x=numeric(0), y=numeric(0), alfa=numeric(0))
+points=data.frame(x1 = 0, y1 = 0, x2 = NA, y2 = NA, alfa=90, depth=1)
+ 
+ 
+for (action in actions) 
+{
+  if (action=="F")
+  {
+    x=points[1, "x1"]+cos(points[1, "alfa"]*(pi/180))
+    y=points[1, "y1"]+sin(points[1, "alfa"]*(pi/180))
+    points[1,"x2"]=x
+    points[1,"y2"]=y
+    data.frame(x1 = x, y1 = y, x2 = NA, y2 = NA, 
+               alfa=points[1, "alfa"],
+               depth=points[1,"depth"]) %>% rbind(points)->points
+  }
+  if (action %in% c("+", "-")){
+    alfa=points[1, "alfa"]
+    points[1, "alfa"]=eval(parse(text=paste0("alfa",action, angle)))
+  }
+  if(action=="["){ 
+    data.frame(x=points[1, "x1"], y=points[1, "y1"], alfa=points[1, "alfa"]) %>% 
+      rbind(status) -> status
+    points[1, "depth"]=points[1, "depth"]+1
+  }
+   
+  if(action=="]"){ 
+    depth=points[1, "depth"]
+    points[-1,]->points
+    data.frame(x1=status[1, "x"], y1=status[1, "y"], x2=NA, y2=NA, 
+               alfa=status[1, "alfa"],
+               depth=depth-1) %>% 
+      rbind(points) -> points
+    status[-1,]->status
+  }
+}
+ 
+ggplot() + 
+  geom_segment(aes(x = x1, y = y1, xend = x2, yend = y2), 
+               lineend = "round", 
+               colour="darkorchid4",
+               data=na.omit(points)) + 
+  coord_fixed(ratio = 1) +
+  theme(legend.position="none",
+        panel.background = element_rect(fill="black"),
+        panel.grid=element_blank(),
+        axis.ticks=element_blank(),
+        axis.title=element_blank(),
+        axis.text=element_blank())
+```
+
+
+##Plant 4
+```{r}
+axiom="X"
+rules=list("X"="F-[[X]+X]+F[-FX]-X", "F"="FF")
+angle=22.5
+depth=6
+
+```
+```{r,echo=F}
+for (i in 1:depth) axiom=gsubfn(".", rules, axiom)
+ 
+actions=str_extract_all(axiom, "\\d*\\+|\\d*\\-|F|L|R|\\[|\\]|\\|") %>% unlist
+ 
+status=data.frame(x=numeric(0), y=numeric(0), alfa=numeric(0))
+points=data.frame(x1 = 0, y1 = 0, x2 = NA, y2 = NA, alfa=90, depth=1)
+ 
+ 
+for (action in actions) 
+{
+  if (action=="F")
+  {
+    x=points[1, "x1"]+cos(points[1, "alfa"]*(pi/180))
+    y=points[1, "y1"]+sin(points[1, "alfa"]*(pi/180))
+    points[1,"x2"]=x
+    points[1,"y2"]=y
+    data.frame(x1 = x, y1 = y, x2 = NA, y2 = NA, 
+               alfa=points[1, "alfa"],
+               depth=points[1,"depth"]) %>% rbind(points)->points
+  }
+  if (action %in% c("+", "-")){
+    alfa=points[1, "alfa"]
+    points[1, "alfa"]=eval(parse(text=paste0("alfa",action, angle)))
+  }
+  if(action=="["){ 
+    data.frame(x=points[1, "x1"], y=points[1, "y1"], alfa=points[1, "alfa"]) %>% 
+      rbind(status) -> status
+    points[1, "depth"]=points[1, "depth"]+1
+  }
+   
+  if(action=="]"){ 
+    depth=points[1, "depth"]
+    points[-1,]->points
+    data.frame(x1=status[1, "x"], y1=status[1, "y"], x2=NA, y2=NA, 
+               alfa=status[1, "alfa"],
+               depth=depth-1) %>% 
+      rbind(points) -> points
+    status[-1,]->status
+  }
+}
+ 
+ggplot() + 
+  geom_segment(aes(x = x1, y = y1, xend = x2, yend = y2), 
+               lineend = "round", 
+               colour="orangered",
+               data=na.omit(points)) + 
+  coord_fixed(ratio = 1) +
+  theme(legend.position="none",
+        panel.background = element_rect(fill="black"),
+        panel.grid=element_blank(),
+        axis.ticks=element_blank(),
+        axis.title=element_blank(),
+        axis.text=element_blank())
+```
+ 
+
+##Plant 5
+
+```{r}
+axiom="F"
+rules=list("F"="F[+F][-F]F[-F][+F]F")
+angle=24
+depth=5
+```
+ 
+```{r,echo=F}
+for (i in 1:depth) axiom=gsubfn(".", rules, axiom)
+ 
+actions=str_extract_all(axiom, "\\d*\\+|\\d*\\-|F|L|R|\\[|\\]|\\|") %>% unlist
+ 
+status=data.frame(x=numeric(0), y=numeric(0), alfa=numeric(0))
+points=data.frame(x1 = 0, y1 = 0, x2 = NA, y2 = NA, alfa=90, depth=1)
+ 
+ 
+for (action in actions) 
+{
+  if (action=="F")
+  {
+    x=points[1, "x1"]+cos(points[1, "alfa"]*(pi/180))
+    y=points[1, "y1"]+sin(points[1, "alfa"]*(pi/180))
+    points[1,"x2"]=x
+    points[1,"y2"]=y
+    data.frame(x1 = x, y1 = y, x2 = NA, y2 = NA, 
+               alfa=points[1, "alfa"],
+               depth=points[1,"depth"]) %>% rbind(points)->points
+  }
+  if (action %in% c("+", "-")){
+    alfa=points[1, "alfa"]
+    points[1, "alfa"]=eval(parse(text=paste0("alfa",action, angle)))
+  }
+  if(action=="["){ 
+    data.frame(x=points[1, "x1"], y=points[1, "y1"], alfa=points[1, "alfa"]) %>% 
+      rbind(status) -> status
+    points[1, "depth"]=points[1, "depth"]+1
+  }
+   
+  if(action=="]"){ 
+    depth=points[1, "depth"]
+    points[-1,]->points
+    data.frame(x1=status[1, "x"], y1=status[1, "y"], x2=NA, y2=NA, 
+               alfa=status[1, "alfa"],
+               depth=depth-1) %>% 
+      rbind(points) -> points
+    status[-1,]->status
+  }
+}
+ 
+ggplot() + 
+  geom_segment(aes(x = x1, y = y1, xend = x2, yend = y2), 
+               lineend = "round", 
+               colour="blue3",
+               data=na.omit(points)) + 
+  coord_fixed(ratio = 1) +
+  theme(legend.position="none",
+        panel.background = element_rect(fill="black"),
+        panel.grid=element_blank(),
+        axis.ticks=element_blank(),
+        axis.title=element_blank(),
+        axis.text=element_blank())
+```
